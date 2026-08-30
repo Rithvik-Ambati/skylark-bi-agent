@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Skylark BI Agent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0F1720;
+    --panel: #151F29;
+    --panel-alt: #1B2733;
+    --border: #26343F;
+    --text: #E8EDF1;
+    --text-dim: #8CA0AF;
+    --text-faint: #56687A;
+    --accent: #F2A63A;
+    --accent-dim: #B97F2C;
+    --teal: #4FB0A5;
+    --red: #E2634F;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Subtle topographic contour-line watermark, evoking the aerial survey
+     data (elevation contours) Skylark's drones actually capture -- this
+     is the page's one signature visual motif, kept quiet and confined to
+     the background rather than decorating every panel. */
+  body {
+    background-image:
+      radial-gradient(circle at 20% 15%, rgba(242, 166, 58, 0.045) 0, transparent 45%),
+      repeating-radial-gradient(circle at 80% 85%, rgba(79, 176, 165, 0.05) 0, rgba(79, 176, 165, 0.05) 1px, transparent 1px, transparent 34px);
+    background-attachment: fixed;
+  }
+
+  .app {
+    max-width: 880px;
+    margin: 0 auto;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .brand { display: flex; align-items: center; gap: 12px; }
+
+  .brand-mark {
+    width: 34px; height: 34px;
+    flex-shrink: 0;
+  }
+
+  .brand-text h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 17px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: 0.2px;
+  }
+
+  .brand-text p {
+    margin: 2px 0 0;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .header-right { display: flex; align-items: center; gap: 14px; }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11.5px;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text-dim);
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--panel-alt);
+  }
+
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--teal);
+    box-shadow: 0 0 0 0 rgba(79,176,165, 0.6);
+    animation: pulse 2.4s infinite;
+  }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(79,176,165, 0.5); }
+    70% { box-shadow: 0 0 0 6px rgba(79,176,165, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(79,176,165, 0); }
+  }
+
+  .new-chat-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    padding: 7px 12px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .new-chat-btn:hover { border-color: var(--accent-dim); color: var(--text); }
+
+  /* one-time sweep animation across the header on load, like a survey pass */
+  .sweep {
+    position: absolute;
+    top: 0; bottom: 0; left: -30%;
+    width: 30%;
+    background: linear-gradient(90deg, transparent, rgba(242,166,58,0.09), transparent);
+    animation: sweep-move 1.8s ease-out 1;
+  }
+  @keyframes sweep-move {
+    from { left: -30%; }
+    to { left: 110%; }
+  }
+
+  /* ---------- Chat area ---------- */
+  .chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .empty-state {
+    margin: auto;
+    text-align: center;
+    max-width: 460px;
+  }
+  .empty-state h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .empty-state p {
+    color: var(--text-dim);
+    font-size: 13.5px;
+    line-height: 1.6;
+    margin-bottom: 22px;
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .chip {
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12.5px;
+    padding: 8px 13px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .15s, transform .1s;
+    text-align: left;
+  }
+  .chip:hover { border-color: var(--accent-dim); }
+  .chip:active { transform: scale(0.98); }
+
+  .msg-row { display: flex; gap: 10px; max-width: 100%; }
+  .msg-row.user { justify-content: flex-end; }
+
+  .avatar {
+    width: 26px; height: 26px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    margin-top: 2px;
+  }
+
+  .bubble {
+    max-width: 75%;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+  }
+
+  .msg-row.assistant .bubble {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-top-left-radius: 3px;
+  }
+
+  .msg-row.user .bubble {
+    background: rgba(242, 166, 58, 0.1);
+    border: 1px solid rgba(242, 166, 58, 0.25);
+    border-top-right-radius: 3px;
+  }
+
+  .bubble ul { margin: 6px 0; padding-left: 18px; }
+  .bubble li { margin-bottom: 3px; }
+  .bubble strong { color: var(--accent); font-weight: 600; }
+  .bubble code {
+    font-family: 'IBM Plex Mono', monospace;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12.5px;
+  }
+
+  .typing-bubble {
+    display: flex; gap: 4px; align-items: center;
+    padding: 14px;
+  }
+  .typing-dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--text-faint);
+    animation: blink 1.2s infinite;
+  }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+
+  .error-note {
+    font-size: 12px;
+    color: var(--red);
+    margin-top: 6px;
+  }
+
+  /* ---------- Input bar ---------- */
+  .input-bar {
+    padding: 14px 24px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  textarea {
+    flex: 1;
+    resize: none;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    padding: 11px 14px;
+    border-radius: 9px;
+    outline: none;
+    max-height: 140px;
+    transition: border-color .15s;
+  }
+  textarea:focus { border-color: var(--accent-dim); }
+  textarea::placeholder { color: var(--text-faint); }
+
+  .send-btn {
+    background: var(--accent);
+    border: none;
+    color: #1A1204;
+    width: 40px; height: 40px;
+    border-radius: 9px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: opacity .15s, transform .1s;
+  }
+  .send-btn:hover { opacity: 0.9; }
+  .send-btn:active { transform: scale(0.94); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Scrollbar */
+  .chat::-webkit-scrollbar { width: 8px; }
+  .chat::-webkit-scrollbar-thumb { background: var(--panel-alt); border-radius: 4px; }
+
+  @media (max-width: 600px) {
+    .bubble { max-width: 88%; }
+    header { padding: 16px 16px 14px; }
+    .chat { padding: 16px; }
+    .input-bar { padding: 12px 16px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="sweep"></div>
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="17" cy="17" r="16" stroke="#F2A63A" stroke-width="1.2" opacity="0.5"/>
+        <circle cx="17" cy="17" r="11" stroke="#4FB0A5" stroke-width="1.2" opacity="0.6"/>
+        <circle cx="17" cy="17" r="3.2" fill="#F2A63A"/>
+      </svg>
+      <div class="brand-text">
+        <h1>Skylark BI Agent</h1>
+        <p>Pipeline &amp; execution intelligence, live from monday.com</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill"><span class="status-dot"></span> live data</div>
+      <button class="new-chat-btn" id="newChatBtn">New chat</button>
+    </div>
+  </header>
+
+  <main class="chat" id="chat">
+    <div class="empty-state" id="emptyState">
+      <h2>Ask about your pipeline or execution health</h2>
+      <p>Answers pull live from your Deals and Work Orders boards, with data-quality caveats surfaced automatically.</p>
+      <div class="chips">
+        <button class="chip" data-q="How's our pipeline looking by sector?">How's our pipeline looking by sector?</button>
+        <button class="chip" data-q="Which open deals are most at risk right now?">Which open deals are most at risk right now?</button>
+        <button class="chip" data-q="How reliable is the Work Orders data?">How reliable is the Work Orders data?</button>
+        <button class="chip" data-q="Prepare a leadership update for this week.">Prepare a leadership update for this week.</button>
+      </div>
+    </div>
+  </main>
+
+  <div class="input-bar">
+    <textarea id="input" rows="1" placeholder="Ask a business question…"></textarea>
+    <button class="send-btn" id="sendBtn" title="Send">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3 11.5L21 3L13.5 21L11 13L3 11.5Z" stroke="#1A1204" stroke-width="1.8" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+  const chat = document.getElementById('chat');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('sendBtn');
+  const newChatBtn = document.getElementById('newChatBtn');
+  const emptyState = document.getElementById('emptyState');
+
+  let sessionId = null;
+
+  // ---- tiny markdown-ish renderer: handles **bold**, "- " bullet lines,
+  // and line breaks, since the agent's replies use lightweight formatting.
+  function renderMarkdownLite(text) {
+    const lines = text.split('\n');
+    let html = '';
+    let inList = false;
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (line.startsWith('- ') || line.startsWith('• ')) {
+        if (!inList) { html += '<ul>'; inList = true; }
+        html += `<li>${inlineFormat(line.slice(2))}</li>`;
+      } else {
+        if (inList) { html += '</ul>'; inList = false; }
+        if (line.length === 0) { html += '<br>'; }
+        else { html += `<div>${inlineFormat(line)}</div>`; }
+      }
+    }
+    if (inList) html += '</ul>';
+    return html;
+  }
+
+  function inlineFormat(str) {
+    return str
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/`(.+?)`/g, '<code>$1</code>');
+  }
+
+  function addMessage(role, text) {
+    emptyState.style.display = 'none';
+    const row = document.createElement('div');
+    row.className = `msg-row ${role}`;
+
+    if (role === 'assistant') {
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.innerHTML = '<svg width="14" height="14" viewBox="0 0 34 34"><circle cx="17" cy="17" r="15" stroke="#F2A63A" stroke-width="1.4" fill="none" opacity="0.6"/><circle cx="17" cy="17" r="3" fill="#F2A63A"/></svg>';
+      row.appendChild(avatar);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = renderMarkdownLite(text);
+    row.appendChild(bubble);
+
+    chat.appendChild(row);
+    chat.scrollTop = chat.scrollHeight;
+    return bubble;
+  }
+
+  function addTypingIndicator() {
+    emptyState.style.display = 'none';
+    const row = document.createElement('div');
+    row.className = 'msg-row assistant';
+    row.id = 'typingRow';
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.innerHTML = '<svg width="14" height="14" viewBox="0 0 34 34"><circle cx="17" cy="17" r="15" stroke="#F2A63A" stroke-width="1.4" fill="none" opacity="0.6"/><circle cx="17" cy="17" r="3" fill="#F2A63A"/></svg>';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble typing-bubble';
+    bubble.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+    chat.appendChild(row);
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function removeTypingIndicator() {
+    const row = document.getElementById('typingRow');
+    if (row) row.remove();
+  }
+
+  async function sendMessage(text) {
+    if (!text.trim()) return;
+    addMessage('user', text);
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    addTypingIndicator();
+
+    try {
+      const resp = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text, session_id: sessionId }),
+      });
+      const data = await resp.json();
+      removeTypingIndicator();
+
+      if (!resp.ok) {
+        addMessage('assistant', `Something went wrong: ${data.detail || 'unknown error'}`);
+      } else {
+        sessionId = data.session_id;
+        addMessage('assistant', data.reply);
+      }
+    } catch (err) {
+      removeTypingIndicator();
+      addMessage('assistant', `I couldn't reach the server (${err.message}). Please check your connection and try again.`);
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  sendBtn.addEventListener('click', () => sendMessage(input.value));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage(input.value);
+    }
+  });
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+  });
+
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => sendMessage(chip.dataset.q));
+  });
+
+  newChatBtn.addEventListener('click', async () => {
+    if (sessionId) {
+      try { await fetch(`/api/chat/reset?session_id=${sessionId}`, { method: 'POST' }); } catch (e) {}
+    }
+    sessionId = null;
+    chat.innerHTML = '';
+    chat.appendChild(emptyState);
+    emptyState.style.display = 'block';
+  });
+</script>
+</body>
+</html>
